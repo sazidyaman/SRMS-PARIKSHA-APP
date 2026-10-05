@@ -1,0 +1,8 @@
+{
+  "name": "SRMS Pariksha - Academic Examination Portal",
+  "description": "Institutional examination, secure proctored testing, verified academic scorecards, and interactive Recharts exam analytics across MLT, WT, DAA, DBMS, DA, and COI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

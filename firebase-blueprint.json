@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile in the SRMS Pariksha examination and academic system",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "faculty", "admin"] },
+        "identifier": { "type": "string" },
+        "department": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "ResourceItem": {
+      "title": "ResourceItem",
+      "description": "Faculty uploaded video tutorial or previous year question (PYQ) document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["tutorial", "pyq"] },
+        "subjectCode": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorId": { "type": "string" },
+        "semester": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "description": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "pdfUrl": { "type": "string" },
+        "uploadedAt": { "type": "string" }
+      },
+      "required": ["title", "type", "subjectCode", "subjectName", "authorName", "authorId"]
+    },
+    "ExamSubmission": {
+      "title": "ExamSubmission",
+      "description": "Student proctored exam performance, security alert telemetry, and evaluation record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "rollNo": { "type": "string" },
+        "subjectCode": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "score": { "type": "number" },
+        "totalMarks": { "type": "number" },
+        "warningsCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["completed", "flagged", "in_progress"] },
+        "submittedAt": { "type": "string" }
+      },
+      "required": ["studentId", "rollNo", "subjectCode", "score", "status"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Multi-turn Gemini AI study doubt and tutor message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "sender": { "type": "string", "enum": ["user", "ai"] },
+        "role": { "type": "string" },
+        "text": { "type": "string" },
+        "modelUsed": { "type": "string" },
+        "subjectKey": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "sender", "text"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Academic identity and user profiles for students and faculty"
+    },
+    "/users/{userId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Persisted student Gemini chat history"
+    },
+    "/resources/{resourceId}": {
+      "schema": { "$ref": "#/entities/ResourceItem" },
+      "description": "Repository of educational tutorials and previous year examination question papers"
+    },
+    "/submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/ExamSubmission" },
+      "description": "Archived exam submissions, scores, and proctoring violation logs"
+    }
+  }
+}
