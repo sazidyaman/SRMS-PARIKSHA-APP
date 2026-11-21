@@ -109,7 +109,7 @@ export const GoogleDriveScreen: React.FC<GoogleDriveScreenProps> = ({
       const result = await googleSignIn();
       if (result) {
         setIsAuthenticated(true);
-        showToast(`Connected as ${result.user.email || 'Google User'}`);
+        showToast(`Connected as ${result.user?.email || 'Google User'}`);
         await loadDriveInfo();
         await loadFiles();
       }

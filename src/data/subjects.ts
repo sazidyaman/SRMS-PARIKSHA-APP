@@ -1,4 +1,4 @@
-import { Subject, ExamQuestion, ScheduledExam, SubjectKey } from '../types';
+import { Subject, ExamQuestion, ScheduledExam, SubjectKey, UserProfile } from '../types';
 
 /**
  * ⚠️ DEMO PROFILE - FOR DEVELOPMENT PREVIEW ONLY ⚠️
@@ -116,7 +116,7 @@ export const SUBJECT_DATA: Record<SubjectKey, Subject> = {
     semester: 'Semester VI',
     academicYear: 'AY 2024–25',
     term: 'Term II',
-    icon: 'globe',
+    icon: 'language',
     topics: [
       { name: 'DOM & Asynchronous JavaScript', questionsCount: 10, defaultProficiency: 98 },
       { name: 'REST APIs & Web Security', questionsCount: 8, defaultProficiency: 94 },
@@ -152,7 +152,7 @@ export const SUBJECT_DATA: Record<SubjectKey, Subject> = {
     semester: 'Semester VI',
     academicYear: 'AY 2024–25',
     term: 'Term II',
-    icon: 'cpu',
+    icon: 'memory',
     topics: [
       { name: 'Supervised Models & Gradient Descent', questionsCount: 10, defaultProficiency: 95 },
       { name: 'Neural Networks & Backprop', questionsCount: 8, defaultProficiency: 91 },
@@ -188,7 +188,7 @@ export const SUBJECT_DATA: Record<SubjectKey, Subject> = {
     semester: 'Semester VI',
     academicYear: 'AY 2024–25',
     term: 'Term II',
-    icon: 'bar-chart-3',
+    icon: 'bar_chart',
     topics: [
       { name: 'Exploratory Analysis & Wrangling', questionsCount: 9, defaultProficiency: 96 },
       { name: 'Hypothesis Testing & Statistical Inference', questionsCount: 8, defaultProficiency: 92 },
@@ -224,7 +224,7 @@ export const SUBJECT_DATA: Record<SubjectKey, Subject> = {
     semester: 'Semester VI',
     academicYear: 'AY 2024–25',
     term: 'Term II',
-    icon: 'book-open',
+    icon: 'menu_book',
     topics: [
       { name: 'Fundamental Rights & Writs', questionsCount: 10, defaultProficiency: 100 },
       { name: 'Union & State Executive', questionsCount: 8, defaultProficiency: 94 },
@@ -832,17 +832,108 @@ export const SUBJECT_QUESTIONS: Record<SubjectKey, ExamQuestion[]> = {
   ],
 };
 
-export const DEFAULT_FACULTY_PROFILE = {
-  id: 'fac-01',
-  name: 'Dr. Alok Verma',
-  email: 'alok.verma@srms.ac.in',
-  role: 'faculty' as const,
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  identifier: 'EMP-CSE-4091',
-  department: 'Department of Computer Science & Engineering',
-  designation: 'Associate Professor & Academic Controller',
-  institution: 'SRMS College of Engineering & Technology',
-};
+export const OFFICIAL_COLLEGE_FACULTIES: UserProfile[] = [
+  {
+    id: 'fac-daa-verma',
+    name: 'Dr. Alok Verma',
+    email: 'alok.verma@srms.ac.in',
+    role: 'faculty',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    identifier: 'SRMS-FAC-DAA-101',
+    employeeId: 'SRMS-FAC-DAA-101',
+    department: 'Department of Computer Science & Engineering',
+    designation: 'Associate Professor - Algorithms & Graph Theory',
+    primarySubject: 'DAA',
+    teachingSemester: 'Semester V (3rd Year)',
+    institution: 'SRMS College of Engineering & Technology, Bareilly (AKTU Code: 010)',
+  },
+  {
+    id: 'fac-dbms-sundaram',
+    name: 'Prof. Meenakshi Sundaram',
+    email: 'meenakshi.sundaram@srms.ac.in',
+    role: 'faculty',
+    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    identifier: 'SRMS-FAC-DB-102',
+    employeeId: 'SRMS-FAC-DB-102',
+    department: 'Department of Computer Science & Engineering',
+    designation: 'Assistant Professor - Database Architecture & SQL',
+    primarySubject: 'DBMS',
+    teachingSemester: 'Semester V (3rd Year)',
+    institution: 'SRMS College of Engineering & Technology, Bareilly (AKTU Code: 010)',
+  },
+  {
+    id: 'fac-wt-gupta',
+    name: 'Dr. Rajesh Gupta',
+    email: 'rajesh.gupta@srms.ac.in',
+    role: 'faculty',
+    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80',
+    identifier: 'SRMS-FAC-WT-103',
+    employeeId: 'SRMS-FAC-WT-103',
+    department: 'Department of Computer Science & Engineering',
+    designation: 'Professor - Web & Distributed Systems',
+    primarySubject: 'WT',
+    teachingSemester: 'Semester V (3rd Year)',
+    institution: 'SRMS College of Engineering & Technology, Bareilly (AKTU Code: 010)',
+  },
+  {
+    id: 'fac-mlt-rao',
+    name: 'Dr. Priyanka Rao',
+    email: 'priyanka.rao@srms.ac.in',
+    role: 'faculty',
+    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+    identifier: 'SRMS-FAC-ML-104',
+    employeeId: 'SRMS-FAC-ML-104',
+    department: 'Department of Computer Science & Engineering',
+    designation: 'Associate Professor - Artificial Intelligence & ML',
+    primarySubject: 'MLT',
+    teachingSemester: 'Semester V & VI (3rd Year)',
+    institution: 'SRMS College of Engineering & Technology, Bareilly (AKTU Code: 010)',
+  },
+  {
+    id: 'fac-da-mukherjee',
+    name: 'Prof. S. N. Mukherjee',
+    email: 'sn.mukherjee@srms.ac.in',
+    role: 'faculty',
+    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+    identifier: 'SRMS-FAC-DA-105',
+    employeeId: 'SRMS-FAC-DA-105',
+    department: 'Department of Computer Science & Engineering',
+    designation: 'Senior Lecturer - Applied Statistics & Data Analytics',
+    primarySubject: 'DA',
+    teachingSemester: 'Semester VI (3rd Year)',
+    institution: 'SRMS College of Engineering & Technology, Bareilly (AKTU Code: 010)',
+  },
+  {
+    id: 'fac-coi-kulkarni',
+    name: 'Adv. Sunita Kulkarni',
+    email: 'sunita.kulkarni@srms.ac.in',
+    role: 'faculty',
+    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+    identifier: 'SRMS-FAC-COI-106',
+    employeeId: 'SRMS-FAC-COI-106',
+    department: 'Department of Humanities & Social Sciences',
+    designation: 'Visiting Faculty - Constitutional Jurisprudence',
+    primarySubject: 'COI',
+    teachingSemester: 'Semester V & VI (All Branches)',
+    institution: 'SRMS College of Engineering & Technology, Bareilly (AKTU Code: 010)',
+  },
+  {
+    id: 'fac-coordinator-pandey',
+    name: 'Dr. Ashutosh Pandey',
+    email: 'ashutosh.pandey@srms.ac.in',
+    role: 'faculty',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    identifier: 'EMP-CSE-4091',
+    employeeId: 'EMP-CSE-4091',
+    department: 'Department of Computer Science & Engineering',
+    designation: 'Associate Professor & Chief Academic Coordinator',
+    primarySubject: 'DAA',
+    teachingSemester: 'Semester V (3rd Year)',
+    institution: 'SRMS College of Engineering & Technology, Bareilly (AKTU Code: 010)',
+  },
+];
+
+export const DEFAULT_FACULTY_PROFILE: UserProfile = OFFICIAL_COLLEGE_FACULTIES[0];
 
 export const DEFAULT_TUTORIALS = [
   {

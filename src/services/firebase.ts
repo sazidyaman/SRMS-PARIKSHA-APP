@@ -22,21 +22,37 @@ import {
   limit,
   getDocFromServer,
   Timestamp,
+  deleteDoc,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { UserProfile, ResourceItem, UserRole, CollegeBranch } from '../types';
 import { DEFAULT_FACULTY_PROFILE } from '../data/subjects';
 
+// Resolve configuration dynamically with environment variable support
+const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any)?.env : undefined;
+const activeFirebaseConfig = {
+  apiKey: metaEnv?.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
+  authDomain: metaEnv?.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
+  projectId: metaEnv?.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+  storageBucket: metaEnv?.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
+  messagingSenderId: metaEnv?.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
+  appId: metaEnv?.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
+  firestoreDatabaseId: metaEnv?.VITE_FIREBASE_DATABASE_ID || firebaseConfig.firestoreDatabaseId,
+};
+
 // Singleton Firebase initialization
-export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+export const app = getApps().length === 0 ? initializeApp(activeFirebaseConfig) : getApp();
 export const auth = getAuth(app);
 
 // Use named database if defined in config
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+export const db = activeFirebaseConfig.firestoreDatabaseId
+  ? getFirestore(app, activeFirebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
 
 export const googleAuthProvider = new GoogleAuthProvider();
+googleAuthProvider.setCustomParameters({
+  prompt: 'select_account',
+});
 
 /**
  * Validate connection to Firestore as mandated by Firebase Skill.
@@ -217,6 +233,20 @@ export function subscribeToResources(callback: (items: ResourceItem[]) => void):
 }
 
 /**
+ * Delete academic resource (Tutorial or PYQ) from Firestore
+ */
+export async function deleteResourceFromFirestore(resourceId: string): Promise<void> {
+  if (!resourceId) return;
+  try {
+    const resourceRef = doc(db, 'resources', resourceId);
+    await deleteDoc(resourceRef);
+    console.log('[Firebase] Successfully deleted resource from Firestore:', resourceId);
+  } catch (err) {
+    console.warn('[Firebase] Failed to delete resource from Firestore:', err);
+  }
+}
+
+/**
  * Save exam submission and proctoring telemetry logs
  */
 export async function saveExamSubmissionToFirestore(submission: {
@@ -346,7 +376,7 @@ export async function signInWithGoogleAuth(
           aktuCollegeCode: '010 (SRMS CET, Bareilly)',
           department: 'Department of Computer Science & Engineering',
           degree: 'B.Tech CS • 3rd Year (Sem V)',
-          cgpa: '8.50',
+          cgpa: 'Pending Evaluation',
           institution: 'SRMS College of Engineering & Technology, Bareilly (AKTU Code: 010)',
         };
       }
@@ -393,7 +423,7 @@ export async function signInWithGoogleAuth(
         aktuCollegeCode: '010 (SRMS CET, Bareilly)',
         department: 'Department of Computer Science & Engineering',
         degree: 'B.Tech CS • 3rd Year (Sem V)',
-        cgpa: '8.50',
+        cgpa: 'Pending Evaluation',
         institution: 'SRMS College of Engineering & Technology, Bareilly (AKTU Code: 010)',
       };
 

@@ -6,7 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
-const PORT = 3001;
+const PORT = Number(process.env.PORT) || 3001;
 
 async function startServer() {
   const app = express();
@@ -36,22 +36,19 @@ async function startServer() {
         return res.status(400).json({ error: 'A valid newMessage string is required' });
       }
 
-      // Select Gemini model according to system requirement
-      // gemini-3.1-pro-preview for complex tasks,
-      // gemini-3.5-flash for general tasks,
-      // gemini-3.1-flash-lite for fast tasks.
-      let selectedModel = 'gemini-3.5-flash';
+      // Select resilient Gemini 3.x models with automatic fallback
+      let candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'];
       let roleTitle = 'SRMS Academic Mentor & Conceptual Guide';
       let roleDirective =
         'Provide comprehensive, student-friendly syllabus explanations with structured examples, memory mnemonics, and AKTU/SRMS exam guidelines.';
 
       if (roleMode === 'complex') {
-        selectedModel = 'gemini-3.1-pro-preview';
+        candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'];
         roleTitle = 'SRMS Deep Algorithm & Theoretical Proof Specialist';
         roleDirective =
           'Provide mathematically rigorous derivations, step-by-step proofs (Master Theorem, induction, loop invariants), time/space complexity analysis, and deep technical details.';
       } else if (roleMode === 'fast') {
-        selectedModel = 'gemini-3.1-flash-lite';
+        candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'];
         roleTitle = 'SRMS Quick Revision & Formula Flashcard Bot';
         roleDirective =
           'Provide lightning-fast, ultra-crisp bullet points, formula summaries, definitions, and high-yield exam takeaways without unnecessary preamble.';
@@ -73,8 +70,8 @@ Directives:
       if (!apiKey) {
         // Safe offline simulation if API key is not yet set in environment
         return res.json({
-          reply: `**[Demo Mode - Gemini API Key Required]**\n\nI received your query regarding **${subject}**: "${newMessage}".\n\n*To enable real-time multi-turn generation, add your \`GEMINI_API_KEY\` in the Settings menu.* Here is a key syllabus takeaway for ${subject}: always structure answers with definition, diagram/schema, complexity, and a concrete example!`,
-          modelUsed: `${selectedModel} (offline demo)`,
+          reply: `**[Demo Mode - Gemini API Key Required]**\n\nI received your query regarding **${subject}**: "${newMessage}".\n\n*To enable real-time multi-turn generation, add your \`GEMINI_API_KEY\` to your \`.env\` file in the project root.* Here is a key syllabus takeaway for ${subject}: always structure answers with definition, diagram/schema, complexity, and a concrete example!`,
+          modelUsed: `${candidateModels[0]} (offline demo)`,
           roleMode,
         });
       }
@@ -91,26 +88,35 @@ Directives:
         };
       });
 
-      // Start multi-turn chat session
-      const chat = ai.chats.create({
-        model: selectedModel,
-        history: formattedHistory,
-        config: {
-          systemInstruction,
-        },
-      });
+      let lastError: any = null;
+      for (const modelToTry of candidateModels) {
+        try {
+          const chat = ai.chats.create({
+            model: modelToTry,
+            history: formattedHistory,
+            config: {
+              systemInstruction,
+            },
+          });
 
-      const response = await chat.sendMessage({
-        message: newMessage,
-      });
+          const response = await chat.sendMessage({
+            message: newMessage,
+          });
 
-      const generatedText = response.text || 'No response generated.';
+          const generatedText = response.text || 'No response generated.';
 
-      return res.json({
-        reply: generatedText,
-        modelUsed: selectedModel,
-        roleMode,
-      });
+          return res.json({
+            reply: generatedText,
+            modelUsed: modelToTry,
+            roleMode,
+          });
+        } catch (err: any) {
+          console.warn(`[Gemini API] Model ${modelToTry} failed: ${err.message}. Trying next fallback...`);
+          lastError = err;
+        }
+      }
+
+      throw lastError || new Error('All candidate Gemini models failed to generate a response');
     } catch (error: any) {
       console.error('[API /api/chat Error]:', error);
       return res.status(500).json({

@@ -36,10 +36,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onSelectTab, us
   const adminNavItems: { id: TabType; label: string; icon: string }[] = [
     { id: 'admin_portal', label: 'Admin Hub', icon: 'admin_panel_settings' },
     { id: 'timetable', label: 'Timetable', icon: 'table_chart' },
-    { id: 'schedule', label: 'Exams', icon: 'quiz' },
-    { id: 'resources', label: 'Resources', icon: 'menu_book' },
+    { id: 'resources', label: 'Repository', icon: 'menu_book' },
+    { id: 'drive', label: 'Drive', icon: 'add_to_drive' },
     { id: 'results', label: 'Analytics', icon: 'analytics' },
-    { id: 'profile', label: 'Profile', icon: 'person' },
+    { id: 'profile', label: 'Admin Profile', icon: 'person' },
   ];
 
   const navItems =

@@ -4577,8 +4577,9 @@ export function detectTimetableCollisions(slotList: TimetableSlot[]): TimetableC
         continue;
       }
 
-      // 3. Branch Clash Check (Same class assigned two conflicting simultaneous lectures)
-      if (a.branch === b.branch && !a.batchGroup?.includes('Batch') && !b.batchGroup?.includes('Batch')) {
+      // 3. Branch Clash Check (Same branch or batch assigned conflicting simultaneous lectures)
+      const isBatchConflict = !a.batchGroup || !b.batchGroup || a.batchGroup === b.batchGroup;
+      if (a.branch === b.branch && isBatchConflict) {
         processedPairs.add(pairKey);
         collisions.push({
           id: `clash-branch-${pairKey}`,
@@ -4652,6 +4653,12 @@ export const DEFAULT_ANNOUNCEMENTS: AnnouncementItem[] = [
     postedBy: 'Office of the Principal (Dr. Prabhakar Gupta)',
     date: '14 Aug 2026',
     targetRole: 'all',
+    reactions: {
+      thumbsUp: 34,
+      heart: 19,
+      question: 3,
+      userReactions: {},
+    },
   },
   {
     id: 'ann-2',
@@ -4663,6 +4670,12 @@ export const DEFAULT_ANNOUNCEMENTS: AnnouncementItem[] = [
     postedBy: 'Coordinator Timetable (Dr. Ashutosh Pandey)',
     date: '13 Aug 2026',
     targetRole: 'faculty',
+    reactions: {
+      thumbsUp: 12,
+      heart: 7,
+      question: 0,
+      userReactions: {},
+    },
   },
   {
     id: 'ann-3',
@@ -4674,6 +4687,12 @@ export const DEFAULT_ANNOUNCEMENTS: AnnouncementItem[] = [
     postedBy: 'Head, Dept of Computer Science & Engineering',
     date: '11 Aug 2026',
     targetRole: 'student',
+    reactions: {
+      thumbsUp: 26,
+      heart: 15,
+      question: 4,
+      userReactions: {},
+    },
   },
 ];
 

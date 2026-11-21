@@ -130,9 +130,45 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        setSelectedAvatar(reader.result);
-        setIsSuccessFeedback(true);
-        setTimeout(() => setIsSuccessFeedback(false), 2000);
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const MAX_DIM = 128;
+            let { width, height } = img;
+
+            if (width > height) {
+              if (width > MAX_DIM) {
+                height = Math.round((height * MAX_DIM) / width);
+                width = MAX_DIM;
+              }
+            } else {
+              if (height > MAX_DIM) {
+                width = Math.round((width * MAX_DIM) / height);
+                height = MAX_DIM;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+              setSelectedAvatar(compressedDataUrl);
+              setIsSuccessFeedback(true);
+              setTimeout(() => setIsSuccessFeedback(false), 2000);
+            } else {
+              setSelectedAvatar(reader.result as string);
+            }
+          } catch {
+            setSelectedAvatar(reader.result as string);
+          }
+        };
+        img.onerror = () => {
+          setUploadError('Failed to decode image file. Please try another photo.');
+        };
+        img.src = reader.result;
       }
     };
     reader.onerror = () => {

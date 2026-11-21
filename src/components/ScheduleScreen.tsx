@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { SubjectKey, ScheduledExam, UserProfile, TimetableSlot, TimetableDay } from '../types';
+import {
+  SubjectKey,
+  ScheduledExam,
+  UserProfile,
+  TimetableSlot,
+  TimetableDay,
+  AnnouncementItem,
+  AnnouncementReactionType,
+} from '../types';
 import { SUBJECT_DATA, SCHEDULED_EXAMS } from '../data/subjects';
 import { SubjectBar } from './SubjectBar';
 import { AdmitSlipModal } from './AdmitSlipModal';
@@ -10,12 +18,15 @@ interface ScheduleScreenProps {
   onEnterProctoring: () => void;
   currentUser?: UserProfile | null;
   timetableSlots?: TimetableSlot[];
+  announcements?: AnnouncementItem[];
+  onReactToAnnouncement?: (id: string, type: AnnouncementReactionType) => void;
   onNavigateToTimetable?: () => void;
   onOpenAdmitCardPDF?: () => void;
   onSignOut?: () => void;
   onNavigateToAnalytics?: () => void;
   onOpenAvatarPicker?: () => void;
   onOpenLeaveModal?: () => void;
+  onOpenAdmissionModal?: () => void;
 }
 
 export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
@@ -24,12 +35,15 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   onEnterProctoring,
   currentUser,
   timetableSlots = [],
+  announcements = [],
+  onReactToAnnouncement,
   onNavigateToTimetable,
   onOpenAdmitCardPDF,
   onSignOut,
   onNavigateToAnalytics,
   onOpenAvatarPicker,
   onOpenLeaveModal,
+  onOpenAdmissionModal,
 }) => {
   const [activeFilter, setActiveFilter] = useState<'today' | 'week' | 'all'>('today');
   const [selectedAdmitExam, setSelectedAdmitExam] = useState<ScheduledExam | null>(null);
@@ -44,6 +58,14 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   const branch = currentUser?.branch || 'CS1';
   const avatar = currentUser?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
   const degree = currentUser?.degree || `B.Tech ${branch} • Sem V (3rd Year)`;
+
+  // Student identifier for tracking toggle reactions
+  const studentUserId = currentUser?.id || currentUser?.universityRollNo || 'student-user';
+
+  // Filter announcements for students or institution-wide
+  const visibleAnnouncements = announcements.filter(
+    (a) => a.targetRole === 'all' || a.targetRole === 'student'
+  );
 
   // Determine today's day for schedule lookup
   const dayNames: TimetableDay[] = ['MON', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -122,13 +144,31 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             </button>
           )}
 
+          {onOpenAdmissionModal && (
+            <button
+              onClick={onOpenAdmissionModal}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+              title="College Admissions, Fees, Documents & Helplines"
+            >
+              <span className="material-symbols-outlined text-[15px] text-amber-700">account_balance</span>
+              <span className="hidden sm:inline">Admissions</span>
+            </button>
+          )}
+
           <button
             onClick={() => setShowNotificationToast(true)}
-            aria-label="Notifications"
+            aria-label="Notifications & Bulletins"
             className="relative w-9 h-9 flex items-center justify-center rounded-xl text-[#444653] hover:bg-[#eaedff] transition-colors active:scale-95 cursor-pointer"
+            title="Institutional Notices & Bulletins"
           >
             <span className="material-symbols-outlined text-[20px]">notifications</span>
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#ba1a1a] ring-2 ring-[#faf8ff]"></span>
+            {visibleAnnouncements.length > 0 ? (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#ba1a1a] text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
+                {visibleAnnouncements.length}
+              </span>
+            ) : (
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#00288e] ring-2 ring-[#faf8ff]"></span>
+            )}
           </button>
 
           {onSignOut && (
@@ -344,6 +384,134 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             </span>
             <span className="text-[10px] font-bold text-[#131b2e] mt-1">Apply Leave</span>
           </button>
+        </section>
+
+        {/* ============================================================== */}
+        {/* OFFICIAL COLLEGE NOTICES & BULLETINS WITH LIVE STUDENT REACTIONS */}
+        {/* ============================================================== */}
+        <section className="bg-white rounded-xl border border-[#c4c5d5]/70 p-3.5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-blue-50 text-[#00288e] flex items-center justify-center">
+                <span className="material-symbols-outlined text-[20px]">campaign</span>
+              </span>
+              <div>
+                <h3 className="text-xs font-bold text-[#131b2e] flex items-center gap-1.5">
+                  <span>Official College Notices & Bulletins</span>
+                  {visibleAnnouncements.some((a) => a.priority === 'urgent') && (
+                    <span className="px-1.5 py-0.2 bg-red-100 text-red-800 text-[9px] font-bold rounded-full animate-pulse">
+                      Urgent Updates
+                    </span>
+                  )}
+                </h3>
+                <span className="text-[10px] text-[#757684]">
+                  Issued by Directorate, Dean Academics & Exam Controller
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowNotificationToast(true)}
+              className="text-[11px] font-semibold text-[#00288e] hover:underline cursor-pointer"
+            >
+              View All ({visibleAnnouncements.length})
+            </button>
+          </div>
+
+          {visibleAnnouncements.length === 0 ? (
+            <div className="p-4 bg-[#faf8ff] rounded-xl text-center text-xs text-[#757684]">
+              No active announcements at this time.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {visibleAnnouncements.slice(0, 3).map((item) => {
+                const userReaction = item.reactions?.userReactions?.[studentUserId];
+                const isUrgent = item.priority === 'urgent';
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`p-3 rounded-xl border transition-all ${
+                      isUrgent
+                        ? 'bg-rose-50/50 border-rose-300 ring-1 ring-rose-200'
+                        : 'bg-[#faf8ff] border-[#c4c5d5]/60 hover:border-[#00288e]/40'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-xs font-bold text-[#131b2e] leading-snug">
+                            {item.title}
+                          </h4>
+                          {isUrgent && (
+                            <span className="px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-bold rounded-sm tracking-wide uppercase">
+                              Urgent
+                            </span>
+                          )}
+                          <span className="text-[10px] text-[#757684]">• {item.date}</span>
+                        </div>
+                        <p className="text-xs text-[#444653] leading-relaxed pt-0.5">
+                          {item.content}
+                        </p>
+                        <div className="text-[10px] text-[#757684] pt-0.5">
+                          Authority: <strong>{item.postedBy}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Interactive Reaction Buttons */}
+                    <div className="mt-2.5 pt-2 border-t border-[#c4c5d5]/40 flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => onReactToAnnouncement && onReactToAnnouncement(item.id, 'thumbsUp')}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                          userReaction === 'thumbsUp'
+                            ? 'bg-[#00288e] text-white shadow-xs'
+                            : 'bg-white border border-[#c4c5d5]/70 text-[#444653] hover:bg-blue-50 hover:text-[#00288e]'
+                        }`}
+                        title="Acknowledge this notice"
+                      >
+                        <span>👍</span>
+                        <span>Acknowledged</span>
+                        <span className="opacity-80 font-mono">({item.reactions?.thumbsUp || 0})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onReactToAnnouncement && onReactToAnnouncement(item.id, 'heart')}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                          userReaction === 'heart'
+                            ? 'bg-rose-600 text-white shadow-xs'
+                            : 'bg-white border border-[#c4c5d5]/70 text-[#444653] hover:bg-rose-50 hover:text-rose-700'
+                        }`}
+                        title="Mark as helpful / important"
+                      >
+                        <span>❤️</span>
+                        <span>Helpful</span>
+                        <span className="opacity-80 font-mono">({item.reactions?.heart || 0})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onReactToAnnouncement && onReactToAnnouncement(item.id, 'question')}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                          userReaction === 'question'
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'bg-white border border-[#c4c5d5]/70 text-[#444653] hover:bg-amber-50 hover:text-amber-800'
+                        }`}
+                        title="Have doubts or questions"
+                      >
+                        <span>❓</span>
+                        <span>Question</span>
+                        <span className="opacity-80 font-mono">({item.reactions?.question || 0})</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* Hero Active Exam Alert Card (High Security Countdown) */}
@@ -597,38 +765,124 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
         currentUser={currentUser}
       />
 
-      {/* Notifications Toast Modal */}
+      {/* Institutional Notices & Announcements Modal */}
       {showNotificationToast && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-xs w-full p-4 shadow-xl border border-[#c4c5d5]">
-            <div className="flex items-center justify-between pb-2 border-b border-[#c4c5d5]/40 mb-3">
-              <h4 className="font-bold text-sm text-[#131b2e] flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[#00288e] text-[18px]">notifications</span>
-                Exam Alerts
-              </h4>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl border border-[#c4c5d5] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-[#c4c5d5]/40 bg-[#faf8ff]">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-blue-50 text-[#00288e] flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[20px]">campaign</span>
+                </span>
+                <div>
+                  <h4 className="font-bold text-sm text-[#131b2e]">
+                    Official College Notices ({visibleAnnouncements.length})
+                  </h4>
+                  <p className="text-[10px] text-[#757684]">
+                    SRMS CET Directorate & Academic Administration
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowNotificationToast(false)}
-                className="text-[#757684] hover:text-[#131b2e] cursor-pointer"
+                className="w-8 h-8 rounded-lg text-[#757684] hover:bg-slate-100 flex items-center justify-center cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
-            <div className="space-y-2.5 text-xs text-[#444653]">
-              <div className="p-2 rounded-lg bg-[#eaedff]">
-                <p className="font-semibold text-[#00288e]">Proctoring Room Ready</p>
-                <p className="text-[11px] mt-0.5">Biometric kiosk #42 assigned for {activeSubjectInfo.shortName}.</p>
-              </div>
-              <div className="p-2 rounded-lg bg-[#f2f3ff]">
-                <p className="font-semibold text-[#131b2e]">Attendance Recorded</p>
-                <p className="text-[11px] mt-0.5">Your enrollment credentials are confirmed for {branch}.</p>
-              </div>
+
+            <div className="p-4 overflow-y-auto space-y-3 flex-1">
+              {visibleAnnouncements.length === 0 ? (
+                <div className="p-6 text-center text-xs text-[#757684] bg-[#faf8ff] rounded-xl border border-dashed border-[#c4c5d5]">
+                  No active notices published yet.
+                </div>
+              ) : (
+                visibleAnnouncements.map((item) => {
+                  const userReaction = item.reactions?.userReactions?.[studentUserId];
+                  const isUrgent = item.priority === 'urgent';
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-3.5 rounded-xl border text-xs space-y-2 ${
+                        isUrgent
+                          ? 'bg-rose-50/60 border-rose-300'
+                          : 'bg-[#faf8ff] border-[#c4c5d5]/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="font-bold text-[#131b2e] text-xs">{item.title}</span>
+                        <div className="flex items-center gap-1.5">
+                          {isUrgent && (
+                            <span className="px-2 py-0.5 bg-red-600 text-white text-[9px] font-bold rounded-sm tracking-wide uppercase">
+                              Urgent
+                            </span>
+                          )}
+                          <span className="text-[10px] text-[#757684]">{item.date}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-[#444653] leading-relaxed">{item.content}</p>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-[#c4c5d5]/30 text-[10px] text-[#757684] flex-wrap gap-2">
+                        <span>Issued by: <strong>{item.postedBy}</strong></span>
+
+                        {/* Interactive reaction buttons */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => onReactToAnnouncement && onReactToAnnouncement(item.id, 'thumbsUp')}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
+                              userReaction === 'thumbsUp'
+                                ? 'bg-[#00288e] text-white'
+                                : 'bg-white border border-[#c4c5d5]/60 text-[#444653] hover:bg-blue-50'
+                            }`}
+                          >
+                            <span>👍</span>
+                            <span>{item.reactions?.thumbsUp || 0}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onReactToAnnouncement && onReactToAnnouncement(item.id, 'heart')}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
+                              userReaction === 'heart'
+                                ? 'bg-rose-600 text-white'
+                                : 'bg-white border border-[#c4c5d5]/60 text-[#444653] hover:bg-rose-50'
+                            }`}
+                          >
+                            <span>❤️</span>
+                            <span>{item.reactions?.heart || 0}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onReactToAnnouncement && onReactToAnnouncement(item.id, 'question')}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
+                              userReaction === 'question'
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-white border border-[#c4c5d5]/60 text-[#444653] hover:bg-amber-50'
+                            }`}
+                          >
+                            <span>❓</span>
+                            <span>{item.reactions?.question || 0}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
-            <button
-              onClick={() => setShowNotificationToast(false)}
-              className="mt-4 w-full py-1.5 rounded-lg bg-[#00288e] text-white text-xs font-semibold cursor-pointer"
-            >
-              Dismiss
-            </button>
+
+            <div className="p-3 border-t border-[#c4c5d5]/40 bg-[#faf8ff] flex justify-end">
+              <button
+                onClick={() => setShowNotificationToast(false)}
+                className="px-4 py-1.5 rounded-xl bg-[#00288e] text-white text-xs font-semibold hover:bg-blue-800 transition-colors cursor-pointer"
+              >
+                Close Notices
+              </button>
+            </div>
           </div>
         </div>
       )}

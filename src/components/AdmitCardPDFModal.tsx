@@ -131,7 +131,7 @@ CANDIDATE SIGNATURE & VERIFICATION:
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-2xl w-full my-auto overflow-hidden shadow-2xl border border-[#c4c5d5] flex flex-col max-h-[92vh]">
         {/* Header Action Bar */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#00288e] text-white flex-shrink-0">
+        <div className="no-print flex items-center justify-between px-4 py-3 bg-[#00288e] text-white flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[20px]">badge</span>
             <div>

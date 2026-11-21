@@ -19,13 +19,74 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({
   defaultView = 'analytics',
   currentUser,
 }) => {
-  const [viewMode, setViewMode] = useState<'analytics' | 'scorecard'>(defaultView);
+  const isStaff = currentUser?.role === 'admin' || currentUser?.role === 'faculty';
+  const [viewMode, setViewMode] = useState<'analytics' | 'scorecard'>(isStaff ? 'analytics' : defaultView);
   const [copiedHash, setCopiedHash] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharedNotice, setSharedNotice] = useState(false);
 
   const subject = SUBJECT_DATA[selectedSubject];
   const summary = subject.summaryScore;
+
+  // Student roster for Admin/Faculty to inspect
+  const INSPECTABLE_STUDENTS = [
+    { name: 'Rahul Sen', roll: '2200100100084', reg: 'SRMS/2022/BTECH/CSE/084', branch: 'CS1', score: summary.obtained, total: summary.total, grade: summary.grade, pct: summary.percentile, rank: summary.rank },
+    { name: 'Priya Sharma', roll: '2200100100092', reg: 'SRMS/2022/BTECH/CSE/092', branch: 'CS2', score: 46, total: 50, grade: 'A+', pct: '96.2th', rank: 4 },
+    { name: 'Aman Verma', roll: '2200100130031', reg: 'SRMS/2022/BTECH/IT/031', branch: 'IT', score: 42, total: 50, grade: 'A', pct: '91.8th', rank: 8 },
+    { name: 'Neha Saxena', roll: '2200101530018', reg: 'SRMS/2022/BTECH/AIML/018', branch: 'AIML', score: 45, total: 50, grade: 'A+', pct: '94.5th', rank: 5 },
+  ];
+
+  const [inspectIndex, setInspectIndex] = useState(0);
+  const activeStudent = isStaff ? INSPECTABLE_STUDENTS[inspectIndex] : null;
+
+  // Check if current student recently completed this exam
+  const lastExamRecord = (() => {
+    if (isStaff) return null;
+    try {
+      const saved = localStorage.getItem('srms_last_submitted_exam');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.subjectKey === selectedSubject) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  })();
+
+  const hasAttempted = isStaff ? true : Boolean(lastExamRecord);
+
+  const studentObtainedScore = lastExamRecord?.score ?? 0;
+  const studentTotalMarks = lastExamRecord?.totalMarks ?? 50;
+  const studentCorrectCount = lastExamRecord?.correctCount ?? 0;
+  const studentAccuracy = lastExamRecord
+    ? Math.round((lastExamRecord.score / lastExamRecord.totalMarks) * 100)
+    : 0;
+  const studentGrade = lastExamRecord
+    ? lastExamRecord.score >= 45
+      ? 'A+'
+      : lastExamRecord.score >= 40
+      ? 'A'
+      : lastExamRecord.score >= 35
+      ? 'B+'
+      : lastExamRecord.score >= 30
+      ? 'B'
+      : 'C'
+    : 'Pending';
+  const studentPct = lastExamRecord
+    ? `${Math.min(99.4, Math.max(50.0, Math.round(studentAccuracy * 0.98 * 10) / 10))}th`
+    : 'Not Evaluated';
+
+  const candidateName = isStaff ? activeStudent?.name : (currentUser?.name || 'Enrolled Student');
+  const candidateRoll = isStaff ? activeStudent?.roll : (currentUser?.universityRollNo || currentUser?.identifier || 'Not Assigned');
+  const candidateReg = isStaff ? activeStudent?.reg : (currentUser?.collegeRegNo || 'Not Assigned');
+  const displayScore = isStaff ? activeStudent?.score : studentObtainedScore;
+  const displayTotal = isStaff ? activeStudent?.total : studentTotalMarks;
+  const displayGrade = isStaff ? activeStudent?.grade : studentGrade;
+  const displayPct = isStaff ? activeStudent?.pct : studentPct;
+  const displayRank = isStaff ? activeStudent?.rank : (hasAttempted ? summary.rank : '-');
+  const displayAccuracy = isStaff ? summary.accuracy : studentAccuracy;
+  const displayCorrectCount = isStaff ? summary.correctQuestions : studentCorrectCount;
 
   const handleCopyHash = () => {
     navigator.clipboard.writeText(summary.shaHash);
@@ -161,7 +222,84 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({
           />
         </div>
 
-        {/* Header Card: Subject & Assessment Meta */}
+        {/* Staff Inspector Banner */}
+        {isStaff && (
+          <div className="bg-purple-50 border border-purple-200 p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-purple-700 text-[20px]">admin_panel_settings</span>
+              <div>
+                <span className="font-bold text-purple-950 block">Administrator Scorecard Inspector</span>
+                <span className="text-[11px] text-purple-800">Reviewing student cohort verified academic records</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 self-end sm:self-auto">
+              <span className="text-[11px] text-purple-900 font-medium">Examinee:</span>
+              <select
+                value={inspectIndex}
+                onChange={(e) => setInspectIndex(Number(e.target.value))}
+                className="px-2.5 py-1 rounded-lg border border-purple-300 bg-white font-bold text-purple-950 text-xs outline-none cursor-pointer"
+              >
+                {INSPECTABLE_STUDENTS.map((std, idx) => (
+                  <option key={std.roll} value={idx}>
+                    {std.name} ({std.branch} • {std.roll})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Main Scorecard or Not Attempted Notification */}
+        {!hasAttempted && !isStaff ? (
+          <section className="bg-white rounded-2xl p-6 border border-[#c4c5d5] shadow-xs text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto shadow-2xs">
+              <span className="material-symbols-outlined text-[32px]">assignment_late</span>
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-base font-bold text-[#131b2e]">
+                Examination Not Yet Attempted
+              </h2>
+              <p className="text-xs text-[#444653] leading-relaxed max-w-sm mx-auto">
+                You have not completed or submitted the proctored assessment for <strong>{subject.name} ({subject.code})</strong>. 
+                Your authentic scorecard, percentile rank, and cryptographic AKTU ledger hash will be computed immediately after exam submission.
+              </p>
+            </div>
+
+            <div className="p-3 bg-[#f2f3ff] rounded-xl border border-[#c4c5d5]/50 text-left space-y-1.5 text-xs text-[#444653]">
+              <div className="flex justify-between">
+                <span>Subject Assessment:</span>
+                <span className="font-semibold text-[#00288e]">{subject.name} ({subject.code})</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Assessment Status:</span>
+                <span className="font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  Scheduled / Pending
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Assessment Format:</span>
+                <span className="font-mono font-bold text-[#131b2e]">50 Marks (25 MCQs • 45 Mins)</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Candidate AKTU Roll:</span>
+                <span className="font-mono font-bold text-[#00288e]">{candidateRoll}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row justify-center gap-2">
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-full py-2.5 px-4 bg-[#00288e] hover:bg-[#1e40af] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                <span>Return to Schedule & Launch Exam</span>
+              </button>
+            </div>
+          </section>
+        ) : (
+          <>
+            {/* Header Card: Subject & Assessment Meta */}
         <section className="bg-white rounded-xl p-4 shadow-xs border border-[#c4c5d5]/50">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -177,7 +315,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({
                 {subject.name}
               </h1>
               <p className="text-xs text-[#444653] mt-0.5">
-                Internal Assessment II (Theory & Analysis)
+                Internal Assessment II (Theory & Analysis) • Candidate: <strong>{candidateName}</strong>
               </p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-[#eaedff] flex items-center justify-center text-[#00288e] flex-shrink-0">
@@ -191,9 +329,9 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({
               Exam Date: Nov 14, 2024
             </span>
             <div className="flex items-center gap-2 font-mono text-[11px]">
-              <span className="text-[#00288e] font-bold">AKTU: {currentUser?.universityRollNo || currentUser?.identifier || '010-SRMS'}</span>
+              <span className="text-[#00288e] font-bold">AKTU: {candidateRoll}</span>
               <span className="text-[#757684]">•</span>
-              <span className="text-[#131b2e] font-semibold">Reg: {currentUser?.collegeRegNo || 'SRMS/2026/BTECH'}</span>
+              <span className="text-[#131b2e] font-semibold">Reg: {candidateReg}</span>
             </div>
           </div>
         </section>
@@ -217,11 +355,11 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
                 <span className="text-3xl text-[#00288e] font-bold tracking-tight">
-                  {summary.obtained}
+                  {displayScore}
                 </span>
-                <span className="text-lg text-[#444653] font-medium">/ {summary.total}</span>
+                <span className="text-lg text-[#444653] font-medium">/ {displayTotal}</span>
                 <span className="ml-2 font-mono text-xs font-semibold text-[#0051d5] px-2 py-0.5 rounded bg-[#eaedff]">
-                  ({((summary.obtained / summary.total) * 100).toFixed(1)}%)
+                  ({((Number(displayScore) / Number(displayTotal)) * 100).toFixed(1)}%)
                 </span>
               </div>
             </div>
@@ -229,7 +367,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({
             {/* Letter Grade Stamp */}
             <div className="text-right">
               <div className="w-14 h-14 rounded-xl bg-[#1e40af] text-white flex flex-col items-center justify-center shadow-xs">
-                <span className="text-2xl leading-none font-bold">{summary.grade}</span>
+                <span className="text-2xl leading-none font-bold">{displayGrade}</span>
                 <span className="text-[10px] tracking-wider uppercase opacity-85 mt-0.5">
                   Grade
                 </span>
@@ -245,7 +383,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({
                 Percentile Rank
               </div>
               <div className="text-base text-[#131b2e] font-bold">
-                {summary.percentile} <span className="text-xs text-[#757684] font-normal">Pct</span>
+                {displayPct} <span className="text-xs text-[#757684] font-normal">Pct</span>
               </div>
             </div>
 
@@ -255,7 +393,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({
                 Cohort Position
               </div>
               <div className="text-base text-[#131b2e] font-bold">
-                {String(summary.rank).padStart(2, '0')}{' '}
+                {String(displayRank).padStart(2, '0')}{' '}
                 <span className="text-xs text-[#757684] font-normal">
                   / {summary.cohortTotal} Students
                 </span>
@@ -281,13 +419,13 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({
                 <div>
                   <div className="text-xs text-[#444653]">Question Accuracy</div>
                   <div className="text-sm text-[#131b2e] font-semibold">
-                    {summary.accuracy}% Accuracy
+                    {displayAccuracy}% Accuracy
                   </div>
                 </div>
               </div>
               <div className="text-right">
                 <span className="font-mono text-xs font-semibold text-[#00288e] bg-[#eaedff] px-2 py-1 rounded">
-                  {summary.correctQuestions} / {summary.totalQuestions}
+                  {displayCorrectCount} / {summary.totalQuestions}
                 </span>
                 <span className="block text-[10px] text-[#757684] mt-0.5">Correct</span>
               </div>
@@ -496,6 +634,8 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({
             <span>Share to LinkedIn / Academic Portfolio</span>
           </button>
         </section>
+          </>
+        )}
       </main>
 
       {/* Share to Portfolio Modal */}

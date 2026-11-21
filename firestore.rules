@@ -15,27 +15,29 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Users Collection
+    // Users Collection (Student, Faculty, Administrator profiles)
     match /users/{userId} {
       allow read: if true;
-      allow create, update: if isAuthenticated() ? isOwner(userId) : true;
+      allow create, update: if isAuthenticated() && isOwner(userId);
       allow delete: if false;
 
-      // Persisted Multi-turn Gemini Chat Messages
+      // Persisted Multi-turn Gemini Chat Messages under user subcollection
       match /messages/{messageId} {
-        allow read, write: if isAuthenticated() ? isOwner(userId) : true;
+        allow read, write: if isAuthenticated() && isOwner(userId);
       }
     }
 
     // Learning Resources (Tutorials & PYQ)
     match /resources/{resourceId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update, delete: if isAuthenticated();
     }
 
-    // Exam submissions & security logs
+    // Exam submissions & security logs: authenticated write once, no tampering/deletion
     match /submissions/{submissionId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
     }
   }
 }

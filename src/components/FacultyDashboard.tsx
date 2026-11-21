@@ -33,26 +33,31 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'tutorials' | 'pyqs' | 'leaves'>('tutorials');
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<SubjectKey | 'ALL'>('ALL');
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'mine'>('all');
   const [leaveFilter, setLeaveFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [leaveRemarksMap, setLeaveRemarksMap] = useState<Record<string, string>>({});
 
-  // Add Tutorial Modal State
+  // Add Tutorial Modal State (Tailored for All College Faculties & Semesters)
   const [isAddTutorialOpen, setIsAddTutorialOpen] = useState(false);
   const [tutTitle, setTutTitle] = useState('');
-  const [tutSubject, setTutSubject] = useState<SubjectKey>('DAA');
+  const [tutSubject, setTutSubject] = useState<SubjectKey>(currentUser.primarySubject || 'DAA');
+  const [tutSemester, setTutSemester] = useState(currentUser.teachingSemester || 'Semester V (3rd Year)');
   const [tutUnit, setTutUnit] = useState('');
   const [tutDesc, setTutDesc] = useState('');
   const [tutDuration, setTutDuration] = useState(45);
   const [tutVideoUrl, setTutVideoUrl] = useState('');
+  const [tutPdfUrl, setTutPdfUrl] = useState('');
   const [tutDifficulty, setTutDifficulty] = useState<'Beginner' | 'Intermediate' | 'Advanced'>('Intermediate');
 
-  // Add PYQ Modal State
+  // Add PYQ Modal State (Tailored for All College Faculties & Semesters)
   const [isAddPYQOpen, setIsAddPYQOpen] = useState(false);
   const [pyqTitle, setPyqTitle] = useState('');
-  const [pyqSubject, setPyqSubject] = useState<SubjectKey>('DAA');
+  const [pyqSubject, setPyqSubject] = useState<SubjectKey>(currentUser.primarySubject || 'DAA');
+  const [pyqSemester, setPyqSemester] = useState(currentUser.teachingSemester || 'Semester V (3rd Year)');
   const [pyqYear, setPyqYear] = useState('2023–24');
   const [pyqExamType, setPyqExamType] = useState<'Mid-Term I' | 'Mid-Term II' | 'End-Semester'>('Mid-Term II');
   const [pyqMarks, setPyqMarks] = useState(50);
+  const [pyqPdfUrl, setPyqPdfUrl] = useState('');
   const [pyqQuestionsText, setPyqQuestionsText] = useState('');
   const [pyqSolution, setPyqSolution] = useState(true);
 
@@ -72,9 +77,12 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
       title: tutTitle,
       subjectKey: tutSubject,
       unitName: tutUnit,
-      description: tutDesc || `Tutorial module for ${SUBJECT_DATA[tutSubject].name}`,
+      description: tutDesc || `Tutorial lecture module for ${SUBJECT_DATA[tutSubject].name}`,
       authorName: currentUser.name,
-      authorRole: currentUser.designation || 'Faculty Evaluator',
+      authorRole: currentUser.designation || 'Faculty Professor',
+      authorId: currentUser.id,
+      semester: tutSemester,
+      pdfNotesUrl: tutPdfUrl.trim() || undefined,
       durationMinutes: Number(tutDuration) || 45,
       videoUrl: tutVideoUrl || 'https://www.youtube.com',
       difficulty: tutDifficulty,
@@ -85,7 +93,8 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
     setTutUnit('');
     setTutDesc('');
     setTutVideoUrl('');
-    showToast('Tutorial published successfully!');
+    setTutPdfUrl('');
+    showToast('Tutorial lecture published successfully!');
   };
 
   const handlePYQSubmit = (e: React.FormEvent) => {
@@ -108,6 +117,9 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
       examType: pyqExamType,
       totalMarks: Number(pyqMarks) || 50,
       uploadedBy: currentUser.name,
+      authorId: currentUser.id,
+      semester: pyqSemester,
+      fileUrl: pyqPdfUrl.trim() || undefined,
       questionsSnippet: questionsList,
       solutionAvailable: pyqSolution,
     });
@@ -115,16 +127,38 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
     setIsAddPYQOpen(false);
     setPyqTitle('');
     setPyqQuestionsText('');
+    setPyqPdfUrl('');
     showToast('Previous Year Question Paper added successfully!');
   };
 
-  const filteredTutorials = selectedSubjectFilter === 'ALL'
+  // Base subject-filtered lists
+  const subjectFilteredTutorials = selectedSubjectFilter === 'ALL'
     ? tutorials
     : tutorials.filter((t) => t.subjectKey === selectedSubjectFilter);
 
-  const filteredPYQs = selectedSubjectFilter === 'ALL'
+  const subjectFilteredPYQs = selectedSubjectFilter === 'ALL'
     ? pyqs
     : pyqs.filter((p) => p.subjectKey === selectedSubjectFilter);
+
+  // Scope-filtered lists (All College Materials vs My Uploads)
+  const isMineTutorial = (t: Tutorial) =>
+    (t.authorId && t.authorId === currentUser.id) ||
+    t.authorName.toLowerCase() === currentUser.name.toLowerCase();
+
+  const isMinePYQ = (p: PreviousYearQuestion) =>
+    (p.authorId && p.authorId === currentUser.id) ||
+    p.uploadedBy.toLowerCase() === currentUser.name.toLowerCase();
+
+  const myTutorialsCount = tutorials.filter(isMineTutorial).length;
+  const myPYQsCount = pyqs.filter(isMinePYQ).length;
+
+  const filteredTutorials = scopeFilter === 'mine'
+    ? subjectFilteredTutorials.filter(isMineTutorial)
+    : subjectFilteredTutorials;
+
+  const filteredPYQs = scopeFilter === 'mine'
+    ? subjectFilteredPYQs.filter(isMinePYQ)
+    : subjectFilteredPYQs;
 
   const ALL_SUBJECTS: SubjectKey[] = ['DAA', 'DBMS', 'WT', 'MLT', 'DA', 'COI'];
 
@@ -174,14 +208,24 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
           </button>
 
           <div>
-            <h1 className="text-sm font-bold text-[#00288e] leading-tight flex items-center gap-1.5">
+            <h1 className="text-sm font-bold text-[#00288e] leading-tight flex items-center gap-1.5 flex-wrap">
               <span>Faculty Academic Console</span>
               <span className="text-[10px] bg-[#eaedff] text-[#00288e] px-1.5 py-0.5 rounded font-mono font-bold">
                 {currentUser.identifier}
               </span>
+              {currentUser.primarySubject && (
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded font-mono">
+                  {currentUser.primarySubject}
+                </span>
+              )}
+              {currentUser.teachingSemester && (
+                <span className="text-[10px] bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.5 rounded">
+                  {currentUser.teachingSemester.split('(')[0].trim()}
+                </span>
+              )}
             </h1>
             <p className="text-[11px] text-[#444653]">
-              {currentUser.name} • {currentUser.designation || 'Academic Evaluator'}
+              {currentUser.name} • {currentUser.designation || 'Faculty Professor'} • {currentUser.department?.replace('Department of ', '')}
             </p>
           </div>
         </div>
@@ -220,14 +264,14 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
         {/* Faculty Bento Stats */}
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="bg-white p-3 rounded-xl border border-[#c4c5d5]/60 shadow-xs text-center">
-            <span className="text-[10px] text-[#757684] block font-medium">Tutorials</span>
+            <span className="text-[10px] text-[#757684] block font-medium">All Tutorials</span>
             <span className="text-lg font-bold text-[#00288e]">{tutorials.length}</span>
-            <span className="text-[9px] text-[#00563a] block">Active Modules</span>
+            <span className="text-[9px] text-emerald-700 font-semibold block">My Uploads: {myTutorialsCount}</span>
           </div>
           <div className="bg-white p-3 rounded-xl border border-[#c4c5d5]/60 shadow-xs text-center">
-            <span className="text-[10px] text-[#757684] block font-medium">PYQ Papers</span>
+            <span className="text-[10px] text-[#757684] block font-medium">All PYQ Papers</span>
             <span className="text-lg font-bold text-[#00288e]">{pyqs.length}</span>
-            <span className="text-[9px] text-[#00563a] block">Archived</span>
+            <span className="text-[9px] text-emerald-700 font-semibold block">My Uploads: {myPYQsCount}</span>
           </div>
           <div
             onClick={() => setActiveTab('leaves')}
@@ -246,9 +290,9 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
             </span>
           </div>
           <div className="bg-white p-3 rounded-xl border border-[#c4c5d5]/60 shadow-xs text-center">
-            <span className="text-[10px] text-[#757684] block font-medium">Enrolled</span>
-            <span className="text-lg font-bold text-[#131b2e]">118</span>
-            <span className="text-[9px] text-[#757684] block">CS 3rd Year</span>
+            <span className="text-[10px] text-[#757684] block font-medium">Semester Cohort</span>
+            <span className="text-lg font-bold text-[#131b2e]">{currentUser.teachingSemester ? currentUser.teachingSemester.split('(')[0].trim() : 'Sem V'}</span>
+            <span className="text-[9px] text-[#757684] block">{currentUser.primarySubject || 'DAA'} In-Charge</span>
           </div>
         </section>
 
@@ -297,26 +341,62 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
             </button>
           </div>
 
-          {/* Action Trigger Buttons for Tutorials & PYQs */}
+          {/* Action Trigger Buttons + Scope Toggle for Tutorials & PYQs */}
           {activeTab !== 'leaves' && (
-            <div className="flex gap-2">
-              {activeTab === 'tutorials' ? (
-                <button
-                  onClick={() => setIsAddTutorialOpen(true)}
-                  className="w-full py-2 px-3 rounded-xl bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                  <span>Add Video Tutorial / Notes</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => setIsAddPYQOpen(true)}
-                  className="w-full py-2 px-3 rounded-xl bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[18px]">post_add</span>
-                  <span>Add Previous Year Question Paper (PYQ)</span>
-                </button>
-              )}
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                {activeTab === 'tutorials' ? (
+                  <button
+                    onClick={() => setIsAddTutorialOpen(true)}
+                    className="w-full py-2 px-3 rounded-xl bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                    <span>Add Video Tutorial / Course Notes</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setIsAddPYQOpen(true)}
+                    className="w-full py-2 px-3 rounded-xl bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">post_add</span>
+                    <span>Add Previous Year Question Paper (PYQ)</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Scope Switcher: All College Materials vs My Uploads Only */}
+              <div className="flex items-center justify-between p-1.5 bg-[#f8f9ff] rounded-lg border border-[#c4c5d5]/40 text-xs">
+                <span className="text-[11px] font-medium text-[#444653] pl-1">
+                  Repository Scope:
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setScopeFilter('all')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                      scopeFilter === 'all'
+                        ? 'bg-[#00288e] text-white shadow-xs'
+                        : 'bg-white text-[#444653] hover:bg-slate-100'
+                    }`}
+                  >
+                    All College Faculty
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScopeFilter('mine')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                      scopeFilter === 'mine'
+                        ? 'bg-[#00288e] text-white shadow-xs'
+                        : 'bg-white text-[#444653] hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>My Uploads</span>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1 py-0.2 rounded font-bold">
+                      {activeTab === 'tutorials' ? myTutorialsCount : myPYQsCount}
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -401,6 +481,9 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
             ) : (
               filteredTutorials.map((tut) => {
                 const sub = SUBJECT_DATA[tut.subjectKey];
+                const isMine = (tut.authorId && tut.authorId === currentUser.id) ||
+                  tut.authorName.toLowerCase() === currentUser.name.toLowerCase();
+
                 return (
                   <div
                     key={tut.id}
@@ -408,14 +491,24 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
+                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                           <span className="font-mono text-[10px] font-bold text-[#00288e] bg-[#eaedff] px-1.5 py-0.5 rounded">
                             {sub.code} ({tut.subjectKey})
                           </span>
+                          {tut.semester && (
+                            <span className="text-[10px] font-semibold text-purple-800 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">
+                              {tut.semester.split('(')[0].trim()}
+                            </span>
+                          )}
                           <span className="text-[10px] font-semibold text-[#00563a] bg-[#ECFDF5] border border-[#A7F3D0] px-1.5 py-0.5 rounded">
                             {tut.difficulty}
                           </span>
                           <span className="text-[10px] text-[#757684]">• {tut.durationMinutes} mins</span>
+                          {isMine && (
+                            <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                              My Upload
+                            </span>
+                          )}
                         </div>
                         <h3 className="text-xs font-bold text-[#131b2e] leading-snug">{tut.title}</h3>
                         <p className="text-[11px] text-[#0051d5] font-medium">{tut.unitName}</p>
@@ -423,7 +516,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 
                       <button
                         onClick={() => onDeleteTutorial(tut.id)}
-                        className="text-[#757684] hover:text-red-600 p-1 transition-colors"
+                        className="text-[#757684] hover:text-red-600 p-1 transition-colors cursor-pointer"
                         title="Delete Tutorial"
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -434,22 +527,41 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                       {tut.description}
                     </p>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-[#c4c5d5]/30 text-[11px] text-[#757684]">
+                    <div className="flex items-center justify-between pt-2 border-t border-[#c4c5d5]/30 text-[11px] text-[#757684] flex-wrap gap-2">
                       <span className="flex items-center gap-1">
                         <span className="material-symbols-outlined text-[14px]">account_circle</span>
-                        {tut.authorName}
+                        <strong className="text-slate-800">{tut.authorName}</strong>
+                        {tut.authorRole && (
+                          <span className="text-[10px] text-slate-500 hidden sm:inline">
+                            • {tut.authorRole}
+                          </span>
+                        )}
                       </span>
-                      {tut.videoUrl && (
-                        <a
-                          href={tutVideoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-[#00288e] font-semibold hover:underline"
-                        >
-                          <span className="material-symbols-outlined text-[15px]">play_circle</span>
-                          Watch Video
-                        </a>
-                      )}
+
+                      <div className="flex items-center gap-2">
+                        {tut.pdfNotesUrl && (
+                          <a
+                            href={tut.pdfNotesUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-semibold hover:bg-emerald-100 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">description</span>
+                            <span>Notes PDF</span>
+                          </a>
+                        )}
+                        {tut.videoUrl && (
+                          <a
+                            href={tut.videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-[#00288e] bg-[#eaedff] px-2 py-0.5 rounded text-[10px] font-semibold hover:bg-[#d5dcfb] transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">play_circle</span>
+                            <span>Watch Lecture</span>
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -475,6 +587,9 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
             ) : (
               filteredPYQs.map((paper) => {
                 const sub = SUBJECT_DATA[paper.subjectKey];
+                const isMine = (paper.authorId && paper.authorId === currentUser.id) ||
+                  paper.uploadedBy.toLowerCase() === currentUser.name.toLowerCase();
+
                 return (
                   <div
                     key={paper.id}
@@ -482,23 +597,33 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
+                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                           <span className="font-mono text-[10px] font-bold text-[#00288e] bg-[#eaedff] px-1.5 py-0.5 rounded">
                             {sub.code} ({paper.subjectKey})
                           </span>
+                          {paper.semester && (
+                            <span className="text-[10px] font-semibold text-purple-800 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">
+                              {paper.semester.split('(')[0].trim()}
+                            </span>
+                          )}
                           <span className="text-[10px] font-semibold text-[#0051d5] bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
                             {paper.academicYear}
                           </span>
                           <span className="text-[10px] font-semibold text-[#444653] bg-slate-100 px-1.5 py-0.5 rounded">
                             {paper.examType}
                           </span>
+                          {isMine && (
+                            <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                              My Upload
+                            </span>
+                          )}
                         </div>
                         <h3 className="text-xs font-bold text-[#131b2e] leading-snug">{paper.title}</h3>
                       </div>
 
                       <button
                         onClick={() => onDeletePYQ(paper.id)}
-                        className="text-[#757684] hover:text-red-600 p-1 transition-colors"
+                        className="text-[#757684] hover:text-red-600 p-1 transition-colors cursor-pointer"
                         title="Delete Question Paper"
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -519,15 +644,28 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 
                     <div className="flex items-center justify-between pt-1 text-[11px]">
                       <span className="text-[#757684]">
-                        Uploaded by: <strong>{paper.uploadedBy}</strong>
+                        Uploaded by: <strong className="text-slate-800">{paper.uploadedBy}</strong>
                       </span>
-                      <button
-                        onClick={() => showToast(`Downloading Question Paper ${sub.code} (${paper.academicYear})...`)}
-                        className="flex items-center gap-1 text-[#00288e] font-bold hover:underline"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">file_download</span>
-                        <span>Download PDF</span>
-                      </button>
+                      {paper.fileUrl ? (
+                        <a
+                          href={paper.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[#00288e] bg-[#eaedff] px-2.5 py-1 rounded font-bold hover:bg-[#d5dcfb] transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">file_download</span>
+                          <span>Open PDF Paper</span>
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => showToast(`Opening Question Paper for ${sub.code} (${paper.academicYear})...`)}
+                          className="flex items-center gap-1 text-[#00288e] font-bold hover:underline cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">file_download</span>
+                          <span>Download PDF</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -735,7 +873,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
             </div>
 
             <form onSubmit={handleTutorialSubmit} className="space-y-2.5 text-xs">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block font-semibold text-[#131b2e] mb-1">Subject</label>
                   <select
@@ -748,6 +886,24 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                         {key} - {SUBJECT_DATA[key].shortName}
                       </option>
                     ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-[#131b2e] mb-1">Semester</label>
+                  <select
+                    value={tutSemester}
+                    onChange={(e) => setTutSemester(e.target.value)}
+                    className="w-full p-2 rounded-lg border border-[#c4c5d5] outline-none bg-[#faf8ff]"
+                  >
+                    <option value="Semester I (1st Year)">Sem I</option>
+                    <option value="Semester II (1st Year)">Sem II</option>
+                    <option value="Semester III (2nd Year)">Sem III</option>
+                    <option value="Semester IV (2nd Year)">Sem IV</option>
+                    <option value="Semester V (3rd Year)">Sem V</option>
+                    <option value="Semester VI (3rd Year)">Sem VI</option>
+                    <option value="Semester VII (4th Year)">Sem VII</option>
+                    <option value="Semester VIII (4th Year)">Sem VIII</option>
+                    <option value="All Semesters">All Sem</option>
                   </select>
                 </div>
                 <div>
@@ -801,7 +957,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-semibold text-[#131b2e] mb-1">Video URL (YouTube/Cloud)</label>
+                  <label className="block font-semibold text-[#131b2e] mb-1">Video URL (YouTube/Drive)</label>
                   <input
                     type="url"
                     value={tutVideoUrl}
@@ -821,6 +977,19 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                     className="w-full p-2 rounded-lg border border-[#c4c5d5] outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#131b2e] mb-1">
+                  Accompanying PDF Notes Link (Optional Drive / Web URL)
+                </label>
+                <input
+                  type="url"
+                  value={tutPdfUrl}
+                  onChange={(e) => setTutPdfUrl(e.target.value)}
+                  placeholder="https://drive.google.com/... or https://...notes.pdf"
+                  className="w-full p-2 rounded-lg border border-[#c4c5d5] outline-none"
+                />
               </div>
 
               <div className="flex gap-2 pt-2 border-t border-[#c4c5d5]/40">
@@ -858,7 +1027,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
             </div>
 
             <form onSubmit={handlePYQSubmit} className="space-y-2.5 text-xs">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 <div>
                   <label className="block font-semibold text-[#131b2e] mb-1">Subject</label>
                   <select
@@ -871,6 +1040,24 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                         {key}
                       </option>
                     ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-[#131b2e] mb-1">Semester</label>
+                  <select
+                    value={pyqSemester}
+                    onChange={(e) => setPyqSemester(e.target.value)}
+                    className="w-full p-2 rounded-lg border border-[#c4c5d5] outline-none bg-[#faf8ff]"
+                  >
+                    <option value="Semester I (1st Year)">Sem I</option>
+                    <option value="Semester II (1st Year)">Sem II</option>
+                    <option value="Semester III (2nd Year)">Sem III</option>
+                    <option value="Semester IV (2nd Year)">Sem IV</option>
+                    <option value="Semester V (3rd Year)">Sem V</option>
+                    <option value="Semester VI (3rd Year)">Sem VI</option>
+                    <option value="Semester VII (4th Year)">Sem VII</option>
+                    <option value="Semester VIII (4th Year)">Sem VIII</option>
+                    <option value="All Semesters">All Sem</option>
                   </select>
                 </div>
                 <div>
@@ -918,6 +1105,19 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                   onChange={(e) => setPyqTitle(e.target.value)}
                   placeholder={`e.g. ${SUBJECT_DATA[pyqSubject].code} ${pyqSubject} - Mid-Term II Examination (AY ${pyqYear})`}
                   required
+                  className="w-full p-2 rounded-lg border border-[#c4c5d5] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#131b2e] mb-1">
+                  PDF Download / Drive Link (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={pyqPdfUrl}
+                  onChange={(e) => setPyqPdfUrl(e.target.value)}
+                  placeholder="https://drive.google.com/... or https://...paper.pdf"
                   className="w-full p-2 rounded-lg border border-[#c4c5d5] outline-none"
                 />
               </div>

@@ -27,6 +27,7 @@ import { TimetableScreen } from './components/TimetableScreen';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AvatarPickerModal } from './components/AvatarPickerModal';
 import { LeaveApplicationModal } from './components/LeaveApplicationModal';
+import { AdmissionModal } from './components/AdmissionModal';
 import { DEFAULT_TUTORIALS, DEFAULT_PYQS } from './data/subjects';
 import {
   OFFICIAL_SRMS_TIMETABLE,
@@ -36,6 +37,7 @@ import {
 import {
   saveUserProfileToFirestore,
   saveResourceToFirestore,
+  deleteResourceFromFirestore,
   subscribeToResources,
   signOutFromFirebase,
   subscribeToAuthChanges,
@@ -59,10 +61,55 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     try {
       const savedTab = localStorage.getItem('srms_active_tab') as TabType;
-      if (savedTab) return savedTab;
+      if (savedTab) {
+        if (currentUser?.role === 'admin' && (savedTab === 'schedule' || savedTab === 'security_check' || savedTab === 'live_exam')) {
+          return 'admin_portal';
+        }
+        if (currentUser?.role === 'faculty' && (savedTab === 'schedule' || savedTab === 'security_check' || savedTab === 'live_exam')) {
+          return 'faculty_portal';
+        }
+        return savedTab;
+      }
     } catch {}
-    return currentUser?.role === 'faculty' ? 'faculty_portal' : 'schedule';
+    return currentUser?.role === 'admin' ? 'admin_portal' : currentUser?.role === 'faculty' ? 'faculty_portal' : 'schedule';
   });
+
+  // Guard against role misdirection & heal any corrupted local session profiles
+  useEffect(() => {
+    if (currentUser) {
+      if (
+        (currentUser.identifier?.startsWith('SRMS-ADMIN') || currentUser.id?.startsWith('admin')) &&
+        currentUser.role !== 'admin'
+      ) {
+        const corrected: UserProfile = { ...currentUser, role: 'admin' };
+        setCurrentUser(corrected);
+        try {
+          localStorage.setItem('srms_current_user', JSON.stringify(corrected));
+        } catch {}
+      } else if (
+        (currentUser.identifier?.startsWith('SRMS-FAC') ||
+          currentUser.identifier?.startsWith('EMP-') ||
+          currentUser.id?.startsWith('fac-')) &&
+        currentUser.role !== 'faculty'
+      ) {
+        const corrected: UserProfile = { ...currentUser, role: 'faculty' };
+        setCurrentUser(corrected);
+        try {
+          localStorage.setItem('srms_current_user', JSON.stringify(corrected));
+        } catch {}
+      }
+    }
+
+    if (currentUser?.role === 'admin') {
+      if (activeTab === 'schedule' || activeTab === 'security_check' || activeTab === 'live_exam') {
+        setActiveTab('admin_portal');
+      }
+    } else if (currentUser?.role === 'faculty') {
+      if (activeTab === 'schedule' || activeTab === 'security_check' || activeTab === 'live_exam') {
+        setActiveTab('faculty_portal');
+      }
+    }
+  }, [currentUser, activeTab]);
 
   const [selectedSubject, setSelectedSubject] = useState<SubjectKey>(() => {
     try {
@@ -127,9 +174,10 @@ export default function App() {
     return DEFAULT_LEAVE_APPLICATIONS;
   });
 
-  // Modals state for Avatar & Leave Application
+  // Modals state for Avatar, Leave & College Admissions Desk
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showAdmissionModal, setShowAdmissionModal] = useState(false);
 
   useEffect(() => {
     try {
@@ -195,6 +243,58 @@ export default function App() {
     } catch {}
     return DEFAULT_ANNOUNCEMENTS;
   });
+
+  // Handle student / user reaction to college notices
+  const handleReactToAnnouncement = (
+    announcementId: string,
+    reactionType: 'thumbsUp' | 'heart' | 'question'
+  ) => {
+    const userId = currentUser?.id || currentUser?.universityRollNo || 'student-user';
+    setAnnouncements((prev) =>
+      prev.map((item) => {
+        if (item.id !== announcementId) return item;
+
+        const currentReactions = item.reactions || {
+          thumbsUp: 0,
+          heart: 0,
+          question: 0,
+          userReactions: {},
+        };
+        const userReactions = { ...(currentReactions.userReactions || {}) };
+        const previousReaction = userReactions[userId];
+
+        let thumbsUp = currentReactions.thumbsUp || 0;
+        let heart = currentReactions.heart || 0;
+        let question = currentReactions.question || 0;
+
+        if (previousReaction === reactionType) {
+          delete userReactions[userId];
+          if (reactionType === 'thumbsUp') thumbsUp = Math.max(0, thumbsUp - 1);
+          if (reactionType === 'heart') heart = Math.max(0, heart - 1);
+          if (reactionType === 'question') question = Math.max(0, question - 1);
+        } else {
+          if (previousReaction === 'thumbsUp') thumbsUp = Math.max(0, thumbsUp - 1);
+          if (previousReaction === 'heart') heart = Math.max(0, heart - 1);
+          if (previousReaction === 'question') question = Math.max(0, question - 1);
+
+          userReactions[userId] = reactionType;
+          if (reactionType === 'thumbsUp') thumbsUp += 1;
+          if (reactionType === 'heart') heart += 1;
+          if (reactionType === 'question') question += 1;
+        }
+
+        return {
+          ...item,
+          reactions: {
+            thumbsUp,
+            heart,
+            question,
+            userReactions,
+          },
+        };
+      })
+    );
+  };
 
   useEffect(() => {
     try {
@@ -403,8 +503,8 @@ export default function App() {
       subjectCode: newTut.subjectKey,
       subjectName: newTut.unitName,
       authorName: newTut.authorName,
-      authorId: currentUser?.id || 'faculty-default',
-      semester: '5th Semester',
+      authorId: currentUser?.id || newTut.authorId || 'faculty-default',
+      semester: newTut.semester || '5th Semester',
       academicYear: '2024-25',
       description: newTut.description || 'Faculty Video Lecture',
       videoUrl: newTut.videoUrl,
@@ -417,6 +517,7 @@ export default function App() {
 
   const handleDeleteTutorial = (id: string) => {
     setTutorials((prev) => prev.filter((t) => t.id !== id));
+    deleteResourceFromFirestore(id);
   };
 
   // Faculty Handlers: Add / Delete PYQs
@@ -435,8 +536,8 @@ export default function App() {
       subjectCode: newPYQ.subjectKey,
       subjectName: newPYQ.examType,
       authorName: newPYQ.uploadedBy,
-      authorId: currentUser?.id || 'faculty-default',
-      semester: '5th Semester',
+      authorId: currentUser?.id || newPYQ.authorId || 'faculty-default',
+      semester: newPYQ.semester || '5th Semester',
       academicYear: newPYQ.academicYear,
       description: `Previous Year Examination Paper (${newPYQ.academicYear})`,
       pdfUrl: newPYQ.fileUrl,
@@ -448,6 +549,7 @@ export default function App() {
 
   const handleDeletePYQ = (id: string) => {
     setPyqs((prev) => prev.filter((p) => p.id !== id));
+    deleteResourceFromFirestore(id);
   };
 
   // Handle navigating to the exam flow
@@ -469,9 +571,20 @@ export default function App() {
     setActiveTab('results');
   };
 
-  // If not logged in, render Login / Sign-up Page
+  // If not logged in, render Login / Sign-up Page with accessible College Admissions Desk
   if (!currentUser) {
-    return <LoginPage onLoginSuccess={handleLogin} />;
+    return (
+      <>
+        <LoginPage
+          onLoginSuccess={handleLogin}
+          onOpenAdmissionModal={() => setShowAdmissionModal(true)}
+        />
+        <AdmissionModal
+          isOpen={showAdmissionModal}
+          onClose={() => setShowAdmissionModal(false)}
+        />
+      </>
+    );
   }
 
   return (
@@ -488,6 +601,7 @@ export default function App() {
           onUpdateAnnouncements={setAnnouncements}
           onSignOut={handleLogout}
           onOpenAvatarPicker={() => setShowAvatarPicker(true)}
+          onOpenAdmissionModal={() => setShowAdmissionModal(true)}
           leaveApplications={leaveApplications}
           onUpdateLeaveStatus={handleUpdateLeaveStatus}
         />
@@ -529,28 +643,32 @@ export default function App() {
           tutorials={tutorials}
           pyqs={pyqs}
           onOpenAdmitCard={() => setShowAdmitCardPDF(true)}
+          currentUser={currentUser}
         />
       )}
 
       {/* Student Timetable / Schedule Screen */}
-      {activeTab === 'schedule' && (
+      {activeTab === 'schedule' && currentUser?.role === 'student' && (
         <ScheduleScreen
           selectedSubject={selectedSubject}
           onSelectSubject={setSelectedSubject}
           onEnterProctoring={handleEnterProctoring}
           currentUser={currentUser}
           timetableSlots={timetableSlots}
+          announcements={announcements}
+          onReactToAnnouncement={handleReactToAnnouncement}
           onNavigateToTimetable={() => setActiveTab('timetable')}
           onOpenAdmitCardPDF={() => setShowAdmitCardPDF(true)}
           onSignOut={handleLogout}
           onNavigateToAnalytics={() => setActiveTab('results')}
           onOpenAvatarPicker={() => setShowAvatarPicker(true)}
           onOpenLeaveModal={() => setShowLeaveModal(true)}
+          onOpenAdmissionModal={() => setShowAdmissionModal(true)}
         />
       )}
 
       {/* Biometric Security Check / Proctoring Gateway */}
-      {activeTab === 'security_check' && (
+      {activeTab === 'security_check' && currentUser?.role === 'student' && (
         <SecurityCheckScreen
           selectedSubject={selectedSubject}
           currentUser={currentUser}
@@ -560,9 +678,10 @@ export default function App() {
       )}
 
       {/* Live Exam Assessment */}
-      {activeTab === 'live_exam' && (
+      {activeTab === 'live_exam' && currentUser?.role === 'student' && (
         <LiveExamScreen
           selectedSubject={selectedSubject}
+          currentUser={currentUser}
           onFinishExam={handleFinishExam}
           onExitExam={() => setActiveTab('schedule')}
         />
@@ -607,6 +726,7 @@ export default function App() {
           onSignOut={handleLogout}
           onOpenAvatarPicker={() => setShowAvatarPicker(true)}
           onOpenLeaveModal={() => setShowLeaveModal(true)}
+          onOpenAdmissionModal={() => setShowAdmissionModal(true)}
           leaveApplications={leaveApplications}
         />
       )}
@@ -650,6 +770,12 @@ export default function App() {
           onSubmitLeave={handleApplyLeave}
         />
       )}
+
+      {/* Official College Admission, Fees, Pre-Registration & Contact Modal */}
+      <AdmissionModal
+        isOpen={showAdmissionModal}
+        onClose={() => setShowAdmissionModal(false)}
+      />
     </div>
   );
 }

@@ -6,13 +6,17 @@ interface ScratchpadModalProps {
   subjectCode: string;
 }
 
+// Module-level caches to preserve student calculations across modal toggles
+const scratchpadDrawingCache: Record<string, string> = {};
+const scratchpadNotesCache: Record<string, string> = {};
+
 export const ScratchpadModal: React.FC<ScratchpadModalProps> = ({ isOpen, onClose, subjectCode }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [mode, setMode] = useState<'pen' | 'eraser'>('pen');
   const [color, setColor] = useState('#00288e');
   const [lineWidth, setLineWidth] = useState(3);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(() => scratchpadNotesCache[subjectCode] || '');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -21,14 +25,31 @@ export const ScratchpadModal: React.FC<ScratchpadModalProps> = ({ isOpen, onClos
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas dimensions based on client rect
+    // Set canvas dimensions based on client rect without wiping if already set
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * 2;
-    canvas.height = rect.height * 2;
+    const newWidth = rect.width * 2;
+    const newHeight = rect.height * 2;
+
+    if (canvas.width !== newWidth || canvas.height !== newHeight) {
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+    }
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(2, 2);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-  }, [isOpen]);
+
+    // Restore cached drawing if available
+    const cachedData = scratchpadDrawingCache[subjectCode];
+    if (cachedData) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      };
+      img.src = cachedData;
+    }
+  }, [isOpen, subjectCode]);
 
   if (!isOpen) return null;
 
@@ -76,6 +97,12 @@ export const ScratchpadModal: React.FC<ScratchpadModalProps> = ({ isOpen, onClos
 
   const stopDrawing = () => {
     setIsDrawing(false);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      try {
+        scratchpadDrawingCache[subjectCode] = canvas.toDataURL();
+      } catch {}
+    }
   };
 
   const clearCanvas = () => {
@@ -84,6 +111,7 @@ export const ScratchpadModal: React.FC<ScratchpadModalProps> = ({ isOpen, onClos
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    delete scratchpadDrawingCache[subjectCode];
   };
 
   return (

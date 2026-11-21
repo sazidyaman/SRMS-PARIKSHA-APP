@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { SubjectKey } from '../types';
+import { SubjectKey, UserProfile } from '../types';
 import { SUBJECT_DATA, SUBJECT_QUESTIONS } from '../data/subjects';
 import { ScratchpadModal } from './ScratchpadModal';
 import { QuestionPaletteModal } from './QuestionPaletteModal';
@@ -9,12 +9,14 @@ import { saveExamSubmissionToFirestore } from '../services/firebase';
 
 interface LiveExamScreenProps {
   selectedSubject: SubjectKey;
+  currentUser?: UserProfile | null;
   onFinishExam: () => void;
   onExitExam?: () => void;
 }
 
 export const LiveExamScreen: React.FC<LiveExamScreenProps> = ({
   selectedSubject,
+  currentUser,
   onFinishExam,
 }) => {
   const subject = SUBJECT_DATA[selectedSubject];
@@ -36,37 +38,32 @@ export const LiveExamScreen: React.FC<LiveExamScreenProps> = ({
     return null;
   })();
 
-  // Active question index (1-based: 1..25)
+  // Active question index (1-based: 1..25) - starts clean at Q1
   const [currentQIndex, setCurrentQIndex] = useState<number>(() => {
-    return typeof savedState?.currentQIndex === 'number' ? savedState.currentQIndex : 8;
+    return typeof savedState?.currentQIndex === 'number' ? savedState.currentQIndex : 1;
   });
 
+  // Answers matrix - starts completely clean without mock answers
   const [answers, setAnswers] = useState<Record<number, string>>(() => {
     if (savedState?.answers && typeof savedState.answers === 'object') {
       return savedState.answers;
     }
-    return {
-      1: 'A',
-      2: 'A',
-      3: 'B',
-      5: 'A',
-      6: 'C',
-      7: 'A',
-      8: 'A',
-    };
+    return {};
   });
 
+  // Flagged questions set - starts empty
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<number>>(() => {
     if (savedState?.flaggedQuestions && Array.isArray(savedState.flaggedQuestions)) {
       return new Set(savedState.flaggedQuestions);
     }
-    return new Set([4, 8]);
+    return new Set();
   });
 
+  // Exam timer - starts at full exam duration
   const [examSeconds, setExamSeconds] = useState<number>(() => {
     return typeof savedState?.examSeconds === 'number'
       ? savedState.examSeconds
-      : 1 * 3600 + 14 * 60 + 22;
+      : (subject?.durationMinutes || 90) * 60;
   });
 
   // Modals state
@@ -152,6 +149,77 @@ export const LiveExamScreen: React.FC<LiveExamScreenProps> = ({
   const isAwayRef = useRef(false);
   const awayStartTimeRef = useRef(0);
   const lastTriggerTimeRef = useRef(0);
+  const isSubmittingRef = useRef(false);
+
+  // Deterministic scoring & formal exam submission routine
+  const executeExamSubmission = useCallback(
+    (isDisciplinary: boolean = false, strikeCountOverride?: number) => {
+      if (isSubmittingRef.current) return;
+      isSubmittingRef.current = true;
+
+      try {
+        localStorage.removeItem(storageKey);
+      } catch (err) {
+        console.warn('[LiveExam] Failed to clear localStorage on submit:', err);
+      }
+
+      const totalExamQuestions = 25;
+      let calculatedScore = 0;
+      let correctAnswersCount = 0;
+
+      for (let i = 1; i <= totalExamQuestions; i++) {
+        const qData = questions[(i - 1) % questions.length];
+        const studentAns = answers[i];
+        if (studentAns && qData && studentAns === qData.correctOption) {
+          calculatedScore += qData.marks || 2.0;
+          correctAnswersCount += 1;
+        }
+      }
+
+      const effectiveWarnings =
+        typeof strikeCountOverride === 'number' ? strikeCountOverride : warningCount;
+      const isFlagged = isDisciplinary || effectiveWarnings >= 3;
+      const finalStatus: 'completed' | 'flagged' = isFlagged ? 'flagged' : 'completed';
+
+      const studentId = currentUser?.id || 'std-student-demo';
+      const studentName = currentUser?.name || 'Rahul Sen';
+      const rollNo = currentUser?.universityRollNo || currentUser?.identifier || '2200100100084';
+
+      saveExamSubmissionToFirestore({
+        studentId,
+        studentName,
+        rollNo,
+        subjectCode: subject.code,
+        subjectName: subject.name,
+        score: Math.round(calculatedScore * 10) / 10,
+        totalMarks: 50,
+        warningsCount: effectiveWarnings,
+        status: finalStatus,
+      }).catch((err) => console.warn('[LiveExam] Firestore submission log failed:', err));
+
+      // Persist submission record for the Results screen to display actual performance
+      try {
+        localStorage.setItem(
+          'srms_last_submitted_exam',
+          JSON.stringify({
+            subjectKey: selectedSubject,
+            subjectCode: subject.code,
+            subjectName: subject.name,
+            score: Math.round(calculatedScore * 10) / 10,
+            totalMarks: 50,
+            correctCount: correctAnswersCount,
+            totalQuestions: totalExamQuestions,
+            warningsCount: effectiveWarnings,
+            status: finalStatus,
+            submittedAt: new Date().toISOString(),
+          })
+        );
+      } catch {}
+
+      onFinishExam();
+    },
+    [answers, currentUser, onFinishExam, questions, selectedSubject, storageKey, subject.code, subject.name, warningCount]
+  );
 
   useEffect(() => {
     isInternalModalOpenRef.current =
@@ -217,10 +285,17 @@ export const LiveExamScreen: React.FC<LiveExamScreenProps> = ({
           timestamp: timeStr,
         });
 
+        // Enforce 3-strike disciplinary lockout: auto-submit exam if limit reached
+        if (newStrike >= 3) {
+          setTimeout(() => {
+            executeExamSubmission(true, newStrike);
+          }, 3500);
+        }
+
         return newStrike;
       });
     },
-    [playWarningTone]
+    [executeExamSubmission, playWarningTone]
   );
 
   // Tab switching & focus loss listeners
@@ -266,13 +341,26 @@ export const LiveExamScreen: React.FC<LiveExamScreenProps> = ({
     };
   }, [recordFocusLossWarning]);
 
-  // Exam timer
+  // Exam countdown timer
   useEffect(() => {
     const timer = setInterval(() => {
-      setExamSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+      setExamSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Timer auto-submission when time runs out
+  useEffect(() => {
+    if (examSeconds === 0 && !isSubmittingRef.current) {
+      executeExamSubmission(false);
+    }
+  }, [examSeconds, executeExamSubmission]);
 
   const formatExamTime = (secs: number) => {
     const h = Math.floor(secs / 3600);
@@ -818,24 +906,7 @@ export const LiveExamScreen: React.FC<LiveExamScreenProps> = ({
         onClose={() => setIsSubmitModalOpen(false)}
         onConfirmSubmit={() => {
           setIsSubmitModalOpen(false);
-          try {
-            localStorage.removeItem(storageKey);
-          } catch (err) {
-            console.warn('[LiveExam] Failed to clear localStorage on submit:', err);
-          }
-          const score = Object.keys(answers).length * 4;
-          saveExamSubmissionToFirestore({
-            studentId: 'student-demo',
-            studentName: 'Rahul Sen',
-            rollNo: '2200040100084',
-            subjectCode: subject.code,
-            subjectName: subject.name,
-            score,
-            totalMarks: 100,
-            warningsCount: warningCount,
-            status: warningCount >= 3 ? 'flagged' : 'completed',
-          }).catch((err) => console.warn('Firestore submission log failed:', err));
-          onFinishExam();
+          executeExamSubmission(false);
         }}
         totalQuestions={25}
         answers={answers}

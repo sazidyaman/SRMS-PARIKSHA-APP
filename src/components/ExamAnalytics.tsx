@@ -38,7 +38,9 @@ export const ExamAnalytics: React.FC<ExamAnalyticsProps> = ({
   onSelectSubjectForScorecard,
   currentUser,
 }) => {
-  const studentName = currentUser?.name || 'Enrolled Student';
+  const isStaff = currentUser?.role === 'admin' || currentUser?.role === 'faculty';
+  const isAdmin = currentUser?.role === 'admin';
+  const studentName = currentUser?.name || (isStaff ? 'Academic Directorate' : 'Enrolled Student');
   const universityRollNo = currentUser?.universityRollNo || currentUser?.identifier || 'Not Assigned';
   const collegeRegNo = currentUser?.collegeRegNo || 'Not Assigned';
   const initials = studentName
@@ -47,7 +49,7 @@ export const ExamAnalytics: React.FC<ExamAnalyticsProps> = ({
     .map((n) => n[0])
     .join('')
     .slice(0, 2)
-    .toUpperCase() || 'ST';
+    .toUpperCase() || (isAdmin ? 'AD' : isStaff ? 'FA' : 'ST');
   // Active subject keys for multi-line trend chart
   const [activeSubjectKeys, setActiveSubjectKeys] = useState<string[]>([
     'DAA',
@@ -187,51 +189,123 @@ export const ExamAnalytics: React.FC<ExamAnalyticsProps> = ({
 
       {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 pt-5 space-y-5">
-        {/* Student Profile Quick Banner */}
+        {/* Student Profile / Institutional Directorate Quick Banner */}
         <div className="bg-white rounded-2xl p-4 border border-[#c4c5d5]/60 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00288e] to-[#0051d5] text-white flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0">
-              {initials}
+              {isAdmin ? (
+                <span className="material-symbols-outlined text-[24px]">admin_panel_settings</span>
+              ) : isStaff ? (
+                <span className="material-symbols-outlined text-[24px]">co_present</span>
+              ) : (
+                initials
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-[#131b2e]">{studentName}</h2>
-                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Academic Performance Profile
+                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 text-[#00288e] border border-blue-200">
+                  {isAdmin
+                    ? 'Chief Academic Controller'
+                    : isStaff
+                    ? 'Faculty Departmental Analytics'
+                    : 'Academic Performance Profile'}
                 </span>
               </div>
               <p className="text-xs text-[#444653] mt-0.5 flex items-center gap-1.5 flex-wrap">
-                <span>AKTU Roll: <strong className="font-mono text-[#00288e]">{universityRollNo}</strong></span>
-                <span>•</span>
-                <span>College Reg: <strong className="font-mono text-[#131b2e]">{collegeRegNo}</strong></span>
-                <span>•</span>
-                <span>SRMS CET Bareilly (Code 010)</span>
+                {isStaff ? (
+                  <>
+                    <span>Department: <strong>{currentUser?.department || 'Administration & Examination Directorate'}</strong></span>
+                    <span>•</span>
+                    <span>ID: <strong className="font-mono text-[#00288e]">{currentUser?.identifier || 'SRMS-ADMIN-001'}</strong></span>
+                    <span>•</span>
+                    <span>SRMS CET Bareilly (Code 010)</span>
+                  </>
+                ) : (
+                  <>
+                    <span>AKTU Roll: <strong className="font-mono text-[#00288e]">{universityRollNo}</strong></span>
+                    <span>•</span>
+                    <span>College Reg: <strong className="font-mono text-[#131b2e]">{collegeRegNo}</strong></span>
+                    <span>•</span>
+                    <span>SRMS CET Bareilly (Code 010)</span>
+                  </>
+                )}
               </p>
             </div>
           </div>
 
           {/* Executive KPI Pills */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
-              <span className="text-[10px] uppercase font-bold text-[#757684] block">Semester Avg</span>
-              <span className="text-base font-extrabold text-[#00288e]">94.2%</span>
-              <span className="text-[9px] text-emerald-700 font-semibold block">+6.8% gain</span>
-            </div>
-            <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
-              <span className="text-[10px] uppercase font-bold text-[#757684] block">Top Subject</span>
-              <span className="text-base font-extrabold text-purple-700">MLT (bcs055)</span>
-              <span className="text-[9px] text-[#444653] block">98.0% (Grade O)</span>
-            </div>
-            <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
-              <span className="text-[10px] uppercase font-bold text-[#757684] block">Top Improvement</span>
-              <span className="text-base font-extrabold text-[#00288e]">DAA (BCS 503)</span>
-              <span className="text-[9px] text-emerald-700 font-semibold block">+14.0% surge</span>
-            </div>
-            <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
-              <span className="text-[10px] uppercase font-bold text-[#757684] block">Lab Practicals</span>
-              <span className="text-base font-extrabold text-teal-700">95.3%</span>
-              <span className="text-[9px] text-[#444653] block">bcs551, 552, 553</span>
-            </div>
+            {isAdmin ? (
+              <>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Supervised Cohort</span>
+                  <span className="text-base font-extrabold text-[#00288e]">450 Students</span>
+                  <span className="text-[9px] text-[#059669] font-semibold block">AKTU Batch 2024–28</span>
+                </div>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Active Disciplines</span>
+                  <span className="text-base font-extrabold text-purple-700">6 Branches</span>
+                  <span className="text-[9px] text-[#444653] block">CS1, CS2, IT, AIML, EC, ME</span>
+                </div>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Institutional Center</span>
+                  <span className="text-base font-extrabold text-[#00288e]">Code: 010</span>
+                  <span className="text-[9px] text-emerald-700 font-semibold block">SRMS CET Bareilly</span>
+                </div>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">AI Proctoring Kiosk</span>
+                  <span className="text-base font-extrabold text-teal-700">Operational</span>
+                  <span className="text-[9px] text-[#444653] block">Full-Screen Anti-Cheat</span>
+                </div>
+              </>
+            ) : !isStaff && !Boolean(localStorage.getItem('srms_last_submitted_exam')) ? (
+              <>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Semester Average</span>
+                  <span className="text-sm font-extrabold text-[#00288e]">Pending Eval</span>
+                  <span className="text-[9px] text-amber-700 font-semibold block">No Tests Submitted Yet</span>
+                </div>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Enrolled Courses</span>
+                  <span className="text-base font-extrabold text-purple-700">6 Subjects</span>
+                  <span className="text-[9px] text-[#444653] block">Odd Semester 2024–25</span>
+                </div>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Assessments Done</span>
+                  <span className="text-base font-extrabold text-[#00288e]">0 / 6</span>
+                  <span className="text-[9px] text-[#757684] block">Awaiting First Exam</span>
+                </div>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Biometric Seal</span>
+                  <span className="text-base font-extrabold text-teal-700">Approved</span>
+                  <span className="text-[9px] text-[#059669] font-semibold block">Kiosk Hall A-101 Ready</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Semester Avg</span>
+                  <span className="text-base font-extrabold text-[#00288e]">94.2%</span>
+                  <span className="text-[9px] text-emerald-700 font-semibold block">+6.8% gain</span>
+                </div>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Top Subject</span>
+                  <span className="text-base font-extrabold text-purple-700">MLT (bcs055)</span>
+                  <span className="text-[9px] text-[#444653] block">98.0% (Grade O)</span>
+                </div>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Top Improvement</span>
+                  <span className="text-base font-extrabold text-[#00288e]">DAA (BCS 503)</span>
+                  <span className="text-[9px] text-emerald-700 font-semibold block">+14.0% surge</span>
+                </div>
+                <div className="bg-[#faf8ff] p-2.5 rounded-xl border border-[#c4c5d5]/50 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#757684] block">Lab Practicals</span>
+                  <span className="text-base font-extrabold text-teal-700">95.3%</span>
+                  <span className="text-[9px] text-[#444653] block">bcs551, 552, 553</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

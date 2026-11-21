@@ -33,6 +33,7 @@ interface AdminDashboardProps {
   onUpdateAnnouncements: (updated: AnnouncementItem[]) => void;
   onSignOut: () => void;
   onOpenAvatarPicker?: () => void;
+  onOpenAdmissionModal?: () => void;
   leaveApplications?: LeaveApplication[];
   onUpdateLeaveStatus?: (id: string, status: LeaveStatus, remarks: string, reviewerName: string) => void;
 }
@@ -47,6 +48,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateAnnouncements,
   onSignOut,
   onOpenAvatarPicker,
+  onOpenAdmissionModal,
   leaveApplications = [],
   onUpdateLeaveStatus,
 }) => {
@@ -272,6 +274,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       postedBy: `${currentUser?.name || 'Administrator'} (${currentUser?.designation || 'Principal Office'})`,
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       targetRole: 'all',
+      reactions: {
+        thumbsUp: 0,
+        heart: 0,
+        question: 0,
+        userReactions: {},
+      },
     };
 
     onUpdateAnnouncements([ann, ...announcements]);
@@ -367,6 +375,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
               <span className="px-2 py-1 bg-purple-700 text-white rounded-lg font-bold text-[11px]">Admin</span>
             </div>
+
+            {onOpenAdmissionModal && (
+              <button
+                type="button"
+                onClick={onOpenAdmissionModal}
+                className="px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100 text-xs font-semibold flex items-center gap-1 shadow-2xs cursor-pointer transition-colors"
+                title="Open College Admissions, Documents, Fees & Helplines"
+              >
+                <span className="material-symbols-outlined text-[15px] text-amber-700">account_balance</span>
+                <span className="hidden sm:inline">Admissions Desk</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -1421,7 +1441,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <span className="text-[10px] text-[#757684]">• {item.date}</span>
                     </div>
                     <p className="text-[#444653] leading-relaxed">{item.content}</p>
-                    <div className="text-[10px] text-[#757684]">Issued by: {item.postedBy}</div>
+                    <div className="flex items-center justify-between flex-wrap gap-2 pt-1 text-[10px] text-[#757684]">
+                      <span>Issued by: {item.postedBy}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 bg-blue-50 text-[#00288e] px-2 py-0.5 rounded font-semibold border border-blue-100">
+                          👍 {item.reactions?.thumbsUp || 0} Acknowledged
+                        </span>
+                        <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 px-2 py-0.5 rounded font-semibold border border-rose-100">
+                          ❤️ {item.reactions?.heart || 0} Helpful
+                        </span>
+                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-semibold border border-amber-100">
+                          ❓ {item.reactions?.question || 0} Questions
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   <button
                     type="button"

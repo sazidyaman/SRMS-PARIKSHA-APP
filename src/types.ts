@@ -20,7 +20,12 @@ export interface UserProfile {
   designation?: string; // For faculty/admin: e.g. "Associate Professor - CSE" or "Principal & Academic Head"
   degree?: string; // For student: e.g. "B.Tech CS • 3rd Year"
   cgpa?: string;
+  attendance?: string;
   institution: string;
+  // Faculty specific fields:
+  primarySubject?: SubjectKey;
+  teachingSemester?: string; // e.g. "Semester V (3rd Year)"
+  employeeId?: string;
 }
 
 export interface Tutorial {
@@ -36,6 +41,8 @@ export interface Tutorial {
   pdfNotesUrl?: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   createdAt: string;
+  semester?: string;
+  authorId?: string;
 }
 
 export interface PreviousYearQuestion {
@@ -50,6 +57,8 @@ export interface PreviousYearQuestion {
   solutionAvailable: boolean;
   fileUrl?: string;
   createdAt: string;
+  semester?: string;
+  authorId?: string;
 }
 
 export interface Subject {
@@ -231,6 +240,8 @@ export interface TimetableCollision {
   recommendation: string;
 }
 
+export type AnnouncementReactionType = 'thumbsUp' | 'heart' | 'question';
+
 export interface AnnouncementItem {
   id: string;
   title: string;
@@ -240,6 +251,12 @@ export interface AnnouncementItem {
   postedBy: string;
   date: string;
   targetRole: 'all' | 'student' | 'faculty';
+  reactions?: {
+    thumbsUp?: number;
+    heart?: number;
+    question?: number;
+    userReactions?: Record<string, AnnouncementReactionType>;
+  };
 }
 
 // ----------------------------------------------------
